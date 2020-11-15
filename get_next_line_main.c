@@ -90,6 +90,7 @@ int			get_next_line(int fd, char **line)
 {
 	static char		*stat;
 	int				bytes;
+	int				ret;
 
 	if (fd < 0 || BUFFER_SIZE <= 0 || !line)
 		return (-1);
@@ -98,5 +99,8 @@ int			get_next_line(int fd, char **line)
 	bytes = read_bytes(&stat, fd);
 	if (bytes == -1)
 		return (-1);
-	return (ft_return_res(bytes, &line, &stat));
+	ret = ft_return_res(bytes, &line, &stat);
+	if (ret == 0 || ret == -1)
+		free(stat);
+	return (ret);
 }
