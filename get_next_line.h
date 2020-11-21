@@ -20,6 +20,13 @@
 #  define BUFFER_SIZE 1
 # endif
 
+typedef struct		s_gnl_list
+{
+	int					fd;
+	char				*stat;
+	struct s_gnl_list	*next;
+}					t_list;
+
 int					get_next_line(int fd, char **line);
 
 char				*ft_strchr(const char *s, int c);
