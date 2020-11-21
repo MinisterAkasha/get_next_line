@@ -12,26 +12,7 @@
 
 #include "get_next_line.h"
 
-static int	ft_check_stat(char **stat, char ***line)
-{
-	char	*copy;
-	char	*s;
-
-	if (*stat)
-	{
-		if ((s = ft_strchr(*stat, '\n')))
-		{
-			**line = ft_substr(*stat, 0, s - *stat);
-			copy = *stat;
-			*stat = ft_strdup(++s);
-			free(copy);
-			return (1);
-		}
-	}
-	return (0);
-}
-
-static int	read_bytes(char **stat, int fd)
+static int		read_bytes(char **stat, int fd)
 {
 	char	*copy;
 	char	*buffer;
@@ -50,6 +31,8 @@ static int	read_bytes(char **stat, int fd)
 			copy = *stat;
 			*stat = ft_strjoin(copy, buffer);
 			free(copy);
+			if (!*stat)
+				return (-1);
 		}
 		if (ft_strchr(buffer, '\n'))
 			break ;
@@ -58,7 +41,7 @@ static int	read_bytes(char **stat, int fd)
 	return (bytes);
 }
 
-static int	ft_return_res(int bytes, char ***line, char **stat)
+static int		ft_return_res(int bytes, char ***line, char **stat)
 {
 	char			*s;
 	char			*copy;
@@ -67,7 +50,8 @@ static int	ft_return_res(int bytes, char ***line, char **stat)
 		**line = ft_strdup("");
 	else if ((s = ft_strchr(*stat, '\n')))
 	{
-		**line = ft_substr(*stat, 0, s - *stat);
+		if (!(**line = ft_substr(*stat, 0, s - *stat)))
+			return (-1);
 		copy = *stat;
 		*stat = ft_strdup(++s);
 		free(copy);
@@ -79,28 +63,86 @@ static int	ft_return_res(int bytes, char ***line, char **stat)
 		copy = *stat;
 		*stat = ft_strdup("");
 		free(copy);
-		return (0);
 	}
 	else if (!bytes)
 		**line = ft_strdup("");
 	return (0);
 }
 
-int			get_next_line(int fd, char **line)
+static t_list	*ft_get_correct_fd(int fd, t_list **stat_list)
 {
-	static char		*stat;
+	t_list	*elem;
+	t_list	*tmp_list;
+
+	tmp_list = *stat_list;
+	while (tmp_list)
+	{
+		if (tmp_list->fd == fd)
+		{
+			return (tmp_list);
+		}
+		tmp_list = tmp_list->next;
+	}
+	if (!(elem = (t_list*)malloc(sizeof(t_list))))
+		return (NULL);
+	elem->fd = fd;
+	elem->stat = ft_strdup("");
+	elem->next = NULL;
+	if (!*stat_list)
+	{
+		*stat_list = elem;
+		return (*stat_list);
+	}
+	elem->next = *stat_list;
+	*stat_list = elem;
+	return (*stat_list);
+}
+
+static int		ft_exit(int exit_code, t_list **stat_list, t_list **tmp_list)
+{
+	t_list	*stat_copy;
+
+	stat_copy = *stat_list;
+	if (stat_copy->next == NULL || stat_copy == *tmp_list)
+	{
+		(*stat_list) = (*stat_list)->next;
+		free((*tmp_list)->stat);
+		free(*tmp_list);
+		return (exit_code);
+	}
+	while (stat_copy->next != (*tmp_list) && stat_copy != (*tmp_list))
+		stat_copy = stat_copy->next;
+	stat_copy->next = (*tmp_list)->next;
+	free((*tmp_list)->stat);
+	free(*tmp_list);
+	return (exit_code);
+}
+
+int				get_next_line(int fd, char **line)
+{
+	static t_list	*stat_list;
+	t_list			*tmp_list;
 	int				bytes;
 	int				ret;
+	char			*copy;
 
 	if (fd < 0 || BUFFER_SIZE <= 0 || !line)
 		return (-1);
-	if (ft_check_stat(&stat, &line))
-		return (1);
-	bytes = read_bytes(&stat, fd);
-	if (bytes == -1)
-		return (-1);
-	ret = ft_return_res(bytes, &line, &stat);
-	// if (ret == 0 || ret == -1)
-	// 	free(stat);
-	return (ret);
+	tmp_list = ft_get_correct_fd(fd, &stat_list);
+	if (tmp_list->stat)
+	{
+		if ((ft_strchr(tmp_list->stat, '\n')))
+		{
+			if (!(*line = ft_substr(tmp_list->stat, 0,
+				ft_strchr(tmp_list->stat, '\n') - tmp_list->stat)))
+				return (ft_exit(-1, &stat_list, &tmp_list));
+			copy = tmp_list->stat;
+			tmp_list->stat = ft_strdup(ft_strchr(tmp_list->stat, '\n') + 1);
+			free(copy);
+			return (1);
+		}
+	}
+	bytes = read_bytes(&tmp_list->stat, fd);
+	ret = bytes == -1 ? -1 : ft_return_res(bytes, &line, &tmp_list->stat);
+	return (ret == 1 ? 1 : ft_exit(ret, &stat_list, &tmp_list));
 }
